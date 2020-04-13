@@ -10,14 +10,14 @@ RACKET = r'C:\Program Files\Racket\racket.exe'
 PICS = r'./pics/'
 # Icons' extension
 IMAGE_EXT = '.png'
-# Portion of a tile (e.g. hex) occupied by an icon. Icon is assumed to have equal height and width
+# A portion of a tile (e.g. hex) occupied by an icon. An icon is assumed to have equal height and width
 PIC_RATIO = 0.8
 
 # Output directory
 OUTPUT = r'./output/'
 # Dymaxion projection file name (including extension)
 DYMAXION = 'dymaxion.png'
-# Side length of a hexagon in pixels for dymaxion projections. Affects the resolution of the
+# The side length of a hexagon in pixels for dymaxion projections. Affects the resolution of the
 # resulting image. If the resulting quality of the tiles is poor, make it <= HEX_R
 DYMAXION_HEX_R = 50
 
@@ -25,34 +25,65 @@ DYMAXION_HEX_R = 50
 # Equirectangular projection file name (including extension) and the corresponding height map
 EQUIRECTANGULAR = 'equirectangular.png'
 EQUIRECTANGULAR_HEIGHT = 'equirectangular_height.png'
-# Number of pixels for 1 degree of latitude and longitude. Affects the resolution of the
+# The number of pixels for 1 degree of latitude and longitude. Affects the resolution of the
 # resulting image.
 EQUIRECTANGULAR_DEGREE = 20
 
 # Grid Color (RGBA, ex. (0, 0, 0, 255)) or None (the color of the corresponding hex will be used)
-GRID_COLOR = (255, 0, 0, 255)
+GRID_COLOR = (0, 0, 0, 255)
 
-# Settings for tile's  classification
+# Settings for tile's  classification.
+#   Elevation classifies the tile as a
+#       Moutain (> MOUNTAIN_ELEVATION)
+#       Hill (< MOUNTAIN_ELEVATION    and    > HILL_ELEVATION)
+#       Flat Land (< HILL_ELEVATION    and    > 0)
+#       Shallow Ocean (< 0    and    > MID_OCEAN)
+#       Mid-Ocean (< MID_OCEAN    and    > DEEP_OCEAN)
+#       Deep Ocean (< DEEP_OCEAN)
 MOUNTAIN_ELEVATION = 825
 HILL_ELEVATION = 500
 MID_OCEAN = - 1500
 DEEP_OCEAN = - 3500
 
+#   Uses Leaf-Area-Index to classify the tile as a Heavy Forest, Forest, Savanna, Grass, or Desert
+#   The conditions for Leaf-Area-Index must be met during at least one season.
+#       Heavy Forest (> HEAVY_FOREST_LAI)
+#       Forest (< HEAVY_FOREST_LAI    and    > FOREST_LAI)
+#       Savanna (< FOREST_LAI    and    > SAVANNA_LAI)
+#       Grass (< SAVANNA_LAI    and    > LAND_LAI)
+#       Desert (< LAND_LAI)
 HEAVY_FOREST_LAI = 8
 FOREST_LAI = 6.25
 SAVANNA_LAI = 5.90
 LAND_LAI = 4
 
+#   Desert might be warm or snowy. The desert is considered warm if the temperature doesn't fall
+#   bellow WARM_DESERT_MIN_TEMPERATURE during any season. Otherwise, it's cold.
+WARM_DESERT_MIN_TEMPERATURE = 18 + 273.15
+
+#   Classifies a tile as a Wetland. Wetland must be on Flat Land and have precipitation greater
+#   than WETLANDS_PRECIPITATION during all seasons except seasons when the tile is covered by snow,
+#   i.e., frozen.
+#
+#   If the Leaf-Area-Index > SAVANNA_LAI, then the tile is classified as a Swamp, otherwise it's a Marsh
 WETLANDS_PRECIPITATION = 2e-8
+
+#   Classifies the forest tile as one of the Jungle, Boreal, Mixed, Deciduous based on the variation of
+#   Leaf-Area-Index across the seasons. The minimal
+#       Jungle Forest (the absolute change in Leaf-Area-Index < JUNGLE_SEASONAL_LAI_VARIATION
+#                      and temperature > JUNGLE_MIN_TEMPERATURE during all seasons)
+#       Boreal Forest (the absolute change in Leaf-Area-Index < BOREAL_SEASONAL_LAI_VARIATION
+#                      and temperature < JUNGLE_MIN_TEMPERATURE during at least one season)
+#       Mixed Forest (the absolute change in Leaf-Area-Index < DECIDUOUS_SEASONAL_LAI_VARIATION
+#                     and the absolute change in Leaf-Area-Index > BOREAL_SEASONAL_LAI_VARIATION)
+#       Deciduous Forest (the absolute change in Leaf-Area-Index > DECIDUOUS_SEASONAL_LAI_VARIATION)
 
 JUNGLE_SEASONAL_LAI_VARIATION = 2
 BOREAL_SEASONAL_LAI_VARIATION = 6.5
 DECIDUOUS_SEASONAL_LAI_VARIATION = 8
-
 JUNGLE_MIN_TEMPERATURE = 30 + 273.15
-WARM_DESERT_MIN_TEMPERATURE = 18 + 273.15
 
-# Background colors for tiles
+# Background colors for the corresponding tiles (RGB)
 COLORS = {
     'Jungle Forest': (94, 178, 106),
     'Heavy Jungle Forest': (94, 178, 106),
@@ -91,6 +122,7 @@ COLORS = {
 }
 
 
+# Changes the structure of imported planet variable
 def merge_slices(planet):
     planet_size = int(((1 + 8 * len(planet[0][0]))**0.5 + 1) / 4)
     new_planet = []
@@ -103,6 +135,7 @@ def merge_slices(planet):
                     new_planet[-1][corrected_hx] = params
     return new_planet, planet_size
 
+# Classifies the tile
 def type_of_hex(hx, planet):
     def seasonal(param):
         return [season[hx][param] for season in planet]
@@ -172,6 +205,7 @@ def type_of_hex(hx, planet):
     else:
         return 'Cold Desert'
 
+# Classifies all tiles, used in statistics
 def type_of_hexes(planet):
     season = planet[0]
     hex_types = {}
@@ -179,6 +213,7 @@ def type_of_hexes(planet):
         hex_types[hx] = type_of_hex(hx, planet)
     return hex_types
 
+# Gathers statics of tile types
 def gather_statistics(hex_types):
     def key_include(dct, word):
         s = 0
@@ -226,30 +261,23 @@ def gather_statistics(hex_types):
               wetlands / land, marsh / wetlands, swamp / wetlands]
     return output.format(*([100 * p for p in params]))
 
+# Imports icons for tiles
 def import_tile_icons():
-    # width = sqrt(3) * radius
-    #HEX_W = round(HEX_R * 3 ** 0.5 / 2)
-
     def hex_coord(r, w):
         return [(w, 0), (2 * w, r / 2), (2 * w, 3 * r / 2), (w, 2 * r), (0, 3 * r / 2), (0, r / 2)]
 
     icons = {}
     for terrain, color in COLORS.items():
-        # background = Image.new('RGBA', (2 * HEX_W, 2 * HEX_R), color=(0, 0, 0, 0))
-        # draw = ImageDraw.Draw(background)
-        # draw.polygon(hex_coord(HEX_R, HEX_W), fill=color, outline=(0, 0, 0, 0))
         try:
             figure = Image.open(PICS + terrain.lower().replace(" ", "") + IMAGE_EXT).convert('RGBA')
             icons[terrain] = figure
-            # FIGURE_R = round(max(figure.size) / 2)
-            # background.paste(figure, (HEX_W - FIGURE_R, HEX_R - FIGURE_R), figure)
         except:
             #print("Cannot open icon for " + terrain)
             pass
-        # hex_icons[terrain] = background
 
     return icons
 
+# Generates and save Dymaxion map projections
 def save_dymaxion(planet, planet_size, icons):
     # in px
     hex_r = DYMAXION_HEX_R
@@ -286,6 +314,7 @@ def save_dymaxion(planet, planet_size, icons):
 
     dymaxion.save(OUTPUT + DYMAXION)
 
+# Generates and saves Equirectangular map and height map projections
 def save_equirectangalar(planet, icons):
     degree = EQUIRECTANGULAR_DEGREE
     max_height = max([tile['elevation'] for tile in planet[0].values()])
