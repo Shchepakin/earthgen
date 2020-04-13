@@ -24,3 +24,6 @@ compiled/
 .DS_Store
 *.bak
 TAGS
+
+# Python byte-compiled
+__pycache__/
