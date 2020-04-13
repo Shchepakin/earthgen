@@ -1,12 +1,17 @@
 #lang racket
 
-(require racket/flonum
+(require vraid/require)
+
+(require/provide
+         racket/flonum
          "planet-display.rkt"
          "planet/planet-generation.rkt"
          "planet/grid/grid-create.rkt"
          "planet/planet.rkt"
          "terrain-gen.rkt"
          "terrain-dsl.rkt")
+
+(provide (all-defined-out))
 
 (define (algorithms)
   (load-algorithms (file->algorithm grids) "terrain-generation"))
