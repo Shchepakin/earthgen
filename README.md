@@ -23,6 +23,7 @@ Although the earthgen is a fascinating project, there was no built-in export fun
 - Warm Desert
 - Cold Desert
 - Savanna
+- Tundra
 - Swamp
 - Marsh
 - Hill Jungle Forest
@@ -30,6 +31,7 @@ Although the earthgen is a fascinating project, there was no built-in export fun
 - Hill Mixed Forest
 - Hill Boreal Forest
 - Hill Savanna
+- Hill Tundra
 - Mountain Jungle Forest
 - Mountains Jungle Forest
 - Mountain Deciduous Forest
