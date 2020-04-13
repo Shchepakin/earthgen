@@ -58,7 +58,9 @@ in File -> Install Package, install the package located in "earthgen/package/vra
 
 ### Python
 
-You can download and install Python 3 [here](https://www.python.org/downloads/)
+You can download and install Python 3 [here](https://www.python.org/downloads/). After the python installation you'll need to install the necessary packages from `requirements.txt`. You can do that by openning terminal / command window in the program directory and typing
+```pip install -r requirements.txt```
+
 
 Configuration
 -
@@ -89,8 +91,8 @@ to
 ```[seed (seed 75)]```
 
 ### Export (Python)
-The parameters in the code are heavily commented, so if you want to change something, read the comments. The default settings are for Windows. To run the script just type
-`python generate_images.py`
+The parameters in the code are heavily commented, so if you want to change something, read the comments. The default settings are for Windows. To run the script just type in the terminal / command window openned in the program directory
+```python generate_images.py```
 You might need to add python to the PATH environmental variable on Windows (google "python add to PATH").
 
 
