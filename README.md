@@ -68,23 +68,25 @@ There are two files you can modify to change the configuration used in planet ge
 
 #### export.rkt
 
-`(define planet-characteristic-size 4)`
+```(define planet-characteristic-size 4)```
 The number characterizes the size of the planet. 0 is a minimal number, the highest I ever went was 10 and it's way more than needed in most cases. ```diff - Use only even numbers for the export to work```
 
-`    #:axial-tilt (/ pi 8)
+``` 
+    #:axial-tilt (/ pi 8)
     #:acceptable-delta 0.05
     #:precipitation-factor 1.0
     #:humidity-half-life-days 5.0
-    #:seasons-per-cycle 4)`
+    #:seasons-per-cycle 4)
+```
 [Axial tilt](https://en.wikipedia.org/wiki/Axial_tilt) is defined in radians and a non-zero value is required for a season change. All other factors have such values that the generated planet is close to Earth's conditions. `seasons-per-cycle` how many states of climate are generated within one planet year, see explanatory picture [here](https://github.com/vraid/earthgen-old#seasonal-variation). Different seasons are only used in python script to classify tiles (ex.). So, there is no reason to have many seasons, unless you are modifying the python script.
 
 
 #### default.txt
 
 This file contains some settings for the planet generation. I will not go into detail as this is the part of earthgen. You are welcome to try different combinations of values. The values you most likely want to change here are seeds on lines 8, 21, and 27. Changing them will generate different planets (otherwise, the generated planet would be always the same). To change them, just substitute numbers, ex.
-`[seed (seed 0)]`
+```[seed (seed 0)]```
 to
-`[seed (seed 75)]`
+```[seed (seed 75)]```
 
 ### Export (Python)
 The parameters in the code are heavily commented, so if you want to change something, read the comments. The default settings are for Windows. To run the script just type
