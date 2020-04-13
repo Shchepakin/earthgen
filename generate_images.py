@@ -40,35 +40,39 @@ GRID_COLOR = (0, 0, 0, 255)
 #       Shallow Ocean (< 0    and    > MID_OCEAN)
 #       Mid-Ocean (< MID_OCEAN    and    > DEEP_OCEAN)
 #       Deep Ocean (< DEEP_OCEAN)
-MOUNTAIN_ELEVATION = 825
+MOUNTAIN_ELEVATION = 1000
 HILL_ELEVATION = 500
 MID_OCEAN = - 1500
 DEEP_OCEAN = - 3500
 
-#   Uses Leaf-Area-Index to classify the tile as a Heavy Forest, Forest, Savanna, Grass, or Desert
+#   Uses Leaf-Area-Index to classify the tile as a Heavy Forest, Forest, Savanna, Tundra, Grass, or Desert
 #   The conditions for Leaf-Area-Index must be met during at least one season.
 #       Heavy Forest (> HEAVY_FOREST_LAI)
 #       Forest (< HEAVY_FOREST_LAI    and    > FOREST_LAI)
-#       Savanna (< FOREST_LAI    and    > SAVANNA_LAI)
-#       Grass (< SAVANNA_LAI    and    > LAND_LAI)
+#       Savanna (< FOREST_LAI    and    > SAVANNA_TUNDRA_LAI)   <---- must also satisfy that
+#                                                                     minimal temperature > SAVANNA_MIN_TEMPERATURE
+#                                                                     during all seasons. Otherwise considered Tundra
+#       Tundra (< SAVANNA_TUNDRA_LAI    and    > LAND_LAI)      <----/
+#       Grass (< SAVANNA_TUNDRA_LAI    and    > LAND_LAI)
 #       Desert (< LAND_LAI)
 HEAVY_FOREST_LAI = 8
 FOREST_LAI = 6.25
-SAVANNA_LAI = 5.90
-LAND_LAI = 4
+SAVANNA_TUNDRA_LAI = 5.50
+LAND_LAI = 3
+SAVANNA_MIN_TEMPERATURE = 15 + 273.15
 
 #   Desert might be sand, snowy, or neither (bare land). The desert is considered warm if
 #   the temperature doesn't fall bellow SAND_DESERT_MIN_TEMPERATURE during any season.
 #   The desert is snowy if max temperature durin all seasons is below SNOW_DESERT_MAX_TEMPERATURE
 #   Otherwise, it's a bare land.
-SAND_DESERT_MIN_TEMPERATURE = 15 + 273.15
+SAND_DESERT_MIN_TEMPERATURE = 10 + 273.15
 SNOW_DESERT_MAX_TEMPERATURE = 10 + 273.15
 
 #   Classifies a tile as a Wetland. Wetland must be on Flat Land and have precipitation greater
 #   than WETLANDS_PRECIPITATION during all seasons except seasons when the tile is covered by snow,
 #   i.e., frozen.
 #
-#   If the Leaf-Area-Index > SAVANNA_LAI, then the tile is classified as a Swamp, otherwise it's a Marsh
+#   If the Leaf-Area-Index > SAVANNA_TUNDRA_LAI, then the tile is classified as a Swamp, otherwise it's a Marsh
 WETLANDS_PRECIPITATION = 2e-8
 
 #   Classifies the forest tile as one of the Jungle, Boreal, Mixed, Deciduous based on the variation of
@@ -86,6 +90,10 @@ BOREAL_SEASONAL_LAI_VARIATION = 6.5
 DECIDUOUS_SEASONAL_LAI_VARIATION = 8
 JUNGLE_MIN_TEMPERATURE = 30 + 273.15
 
+# Classifies the tile as snowy if the fraction of seasons when tile is covered in snow is
+# at least SEASONAL_SNOW_RATIO. Note: only some tiles can be snowy
+SEASONAL_SNOW_RATIO = 0.75
+
 # Background colors for the corresponding tiles (RGB)
 COLORS = {
     'Jungle Forest': (94, 178, 106),
@@ -96,18 +104,23 @@ COLORS = {
     'Heavy Mixed Forest': (122, 178, 69),
     'Boreal Forest': (79, 158, 69),
     'Heavy Boreal Forest': (79, 158, 69),
+    'Snowy Boreal Forest': (229, 229, 229),
+    'Heavy Snowy Boreal Forest': (229, 229, 229),
     'Grass': (160, 215, 107),
     'Sand Desert': (242, 227, 120),
-    'Desert': (168, 159, 109),
+    'Bare Land': (168, 159, 109),
     'Snow Desert': (229, 229, 229),
     'Savanna': (202, 227, 110),
+    'Tundra': (160, 215, 107),
     'Swamp': (161, 214, 158),
     'Marsh': (173, 222, 166),
     'Hill Jungle Forest': (97, 135, 66),
     'Hill Deciduous Forest': (154, 180, 66),
     'Hill Mixed Forest': (132, 159, 45),
     'Hill Boreal Forest': (103, 139, 47),
+    'Hill Snowy Boreal Forest': (229, 229, 229),
     'Hill Savanna': (217, 219, 112),
+    'Hill Tundra': (160, 215, 107),
     'Mountain Jungle Forest': (199, 143, 0),
     'Mountains Jungle Forest': (178, 128, 0),
     'Mountain Deciduous Forest': (199, 143, 0),
@@ -116,14 +129,18 @@ COLORS = {
     'Mountains Mixed Forest': (178, 128, 0),
     'Mountain Boreal Forest': (199, 143, 0),
     'Mountains Boreal Forest': (178, 128, 0),
+    'Mountain Snowy Boreal Forest': (199, 143, 0),
+    'Mountains Snowy Boreal Forest': (178, 128, 0),
     'Mountain': (199, 143, 0),
     'Mountains': (178, 128, 0),
-    'Snow Mountain': (199, 143, 0),
-    'Snow Mountains': (178, 128, 0),
+    'Snowy Mountain': (199, 143, 0),
+    'Snowy Mountains': (178, 128, 0),
     'Surface Ocean': (29, 78, 145),
     'Mid Ocean': (18, 45, 95),
     'Deep Ocean': (8, 20, 49),
 }
+
+# add snowy tiles
 
 
 # Changes the structure of imported planet variable
@@ -151,9 +168,11 @@ def type_of_hex(hx, planet):
     snow = seasonal('snow')
     temp = seasonal('temperature')
     elevation = planet[0][hx]['elevation']
+    snowy_threshold = SEASONAL_SNOW_RATIO * len(planet)
     
     result = ''
     
+    # Oceans
     if elevation < DEEP_OCEAN:
         return 'Deep Ocean'
     elif elevation < MID_OCEAN:
@@ -161,20 +180,26 @@ def type_of_hex(hx, planet):
     elif elevation < 0:
         return 'Surface Ocean'
     
+    # Wetlands
     if (elevation < HILL_ELEVATION and 
       all([(pre > WETLANDS_PRECIPITATION or sn > 0) for (pre, sn) in zip(precip, snow)]) and
-      sum(snow) < len(planet)):
-        if max(lai) > SAVANNA_LAI:
+      sum(snow) < snowy_threshold):
+        if max(lai) > SAVANNA_TUNDRA_LAI:
             return 'Swamp'
         else:
             return 'Marsh'
     
+    # Forests
     if max(lai) > FOREST_LAI:
         if (spread(lai) < JUNGLE_SEASONAL_LAI_VARIATION
-          and min(temp) > JUNGLE_MIN_TEMPERATURE):
+          and min(temp) > JUNGLE_MIN_TEMPERATURE
+          and sum(snow) < snowy_threshold):
             result += 'Jungle Forest'
-        elif spread(lai) < BOREAL_SEASONAL_LAI_VARIATION:
-            result += 'Boreal Forest'
+        elif (spread(lai) < BOREAL_SEASONAL_LAI_VARIATION or sum(snow) >= snowy_threshold):
+            if sum(snow) < snowy_threshold:
+                result += 'Boreal Forest'
+            else:
+                result += 'Snowy Boreal Forest'
         elif spread(lai) > DECIDUOUS_SEASONAL_LAI_VARIATION:
             result += 'Deciduous Forest'
         else:
@@ -189,28 +214,36 @@ def type_of_hex(hx, planet):
         
         return result
     
+    # Moutains with no forests
     if elevation > MOUNTAIN_ELEVATION:
         result = ('Mountain', 'Mountains')[int(elevation % 2)]
-        if all([sn > 0 for sn in snow]) or max([t - elevation / 100 for t in temp]) < 0:
-            result = 'Snow ' + result
+        if sum(snow) >= snowy_threshold or max([t - elevation / 100 for t in temp]) < 0:
+            result = 'Snowy ' + result
         
         return result
     
-    if max(lai) > SAVANNA_LAI:
-        result = 'Savanna'
+    # Hills and Flat Lands with some trees (but not forests)
+    if max(lai) > SAVANNA_TUNDRA_LAI:
+        if min(temp) > SAVANNA_MIN_TEMPERATURE:
+            result = 'Savanna'
+        else:
+            result = 'Tundra'
         if elevation > HILL_ELEVATION:
             result = 'Hill ' + result
         
         return result
     
-    if max(lai) > LAND_LAI:
+    # Hills and Flat Lands with no trees (grass or deserts)
+    if sum(snow) >= snowy_threshold:
+        return 'Snow Desert'
+    elif max(lai) > LAND_LAI:
         return 'Grass'
     elif min(temp) > SAND_DESERT_MIN_TEMPERATURE:
         return 'Sand Desert'
     elif max(temp) < SNOW_DESERT_MAX_TEMPERATURE:
         return 'Snow Desert'
     else:
-        return 'Desert'
+        return 'Bare Land'
 
 # Classifies all tiles, used in statistics
 def type_of_hexes(planet):
@@ -246,11 +279,12 @@ def gather_statistics(hex_types):
     forest = key_include(count, 'Forest')
     
     savanna = key_include(count, 'Savanna')
+    tundra = key_include(count, 'Tundra')
     grass = key_include(count, 'Grass')
     sand_desert = key_include(count, 'Sand Desert')
     snow_desert = key_include(count, 'Snow Desert')
-    all_deserts = key_include(count, 'Desert')
-    desert = all_deserts - sand_desert - snow_desert
+    bare_land = key_include(count, 'Bare Land')
+    all_deserts = sand_desert + snow_desert + bare_land
     
     marsh = key_include(count, 'Marsh')
     swamp = key_include(count, 'Swamp')
@@ -258,14 +292,14 @@ def gather_statistics(hex_types):
     
     output = ("Ocean: {:.2f}%\nLand: {:.2f}%\n    Hill: {:.2f}%\n    Mountain: {:.2f}%\n    Flat: {:.2f}%\n" +
               "Forests: {:.2f}%\n    Jungle: {:.2f}%\n    Deciduous: {:.2f}%\n    Boreal: {:.2f}%\n    Mixed: {:.2f}%\n" +
-              "Savanna: {:.2f}%\nGrass: {:.2f}%\n" +
+              "Savanna: {:.2f}%\nTundra: {:.2f}%\nGrass: {:.2f}%\n" +
               "Desert: {:.2f}%\n    Warm Desert: {:.2f}%\n    Snow Desert: {:.2f}%\n    Bare land: {:.2f}%\n" +
               "Wetlands: {:.2f}%\n    Marsh: {:.2f}%\n    Swamp: {:.2f}%")
 
     params = [water / total, land / total, hill / land, mountain / land, flat / land,
               forest / land, jungle / forest, deciduous / forest, boreal / forest, mixed / forest,
-              savanna / land, grass / land,
-              all_deserts / land, sand_desert / all_deserts, snow_desert / all_deserts, desert / all_deserts,
+              savanna / land, tundra / land, grass / land,
+              all_deserts / land, sand_desert / all_deserts, snow_desert / all_deserts, bare_land / all_deserts,
               wetlands / land, marsh / wetlands, swamp / wetlands]
     return output.format(*([100 * p for p in params]))
 
