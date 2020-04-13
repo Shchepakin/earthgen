@@ -413,8 +413,8 @@ if __name__ == '__main__':
     print('Generating planet based on parameters from extract.rkt ...')
     
     command = f'"{RACKET}" export.rkt'
-    #if os.system(command):
-    #    raise RuntimeError(command)
+    if os.system(command):
+        raise RuntimeError(command)
     
     print('Done\nImporting map ...')
     
