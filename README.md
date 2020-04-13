@@ -59,7 +59,9 @@ in File -> Install Package, install the package located in "earthgen/package/vra
 ### Python
 
 You can download and install Python 3 [here](https://www.python.org/downloads/). After the python installation you'll need to install the necessary packages from `requirements.txt`. You can do that by openning terminal / command window in the program directory and typing
-```pip install -r requirements.txt```
+```
+pip install -r requirements.txt
+```
 
 
 Configuration
@@ -86,13 +88,19 @@ The number characterizes the size of the planet. 0 is a minimal number, the high
 #### default.txt
 
 This file contains some settings for the planet generation. I will not go into detail as this is the part of earthgen. You are welcome to try different combinations of values. The values you most likely want to change here are seeds on lines 8, 21, and 27. Changing them will generate different planets (otherwise, the generated planet would be always the same). To change them, just substitute numbers, ex.
-```[seed (seed 0)]```
+```
+[seed (seed 0)]
+```
 to
-```[seed (seed 75)]```
+```
+[seed (seed 75)]
+```
 
 ### Export (Python)
 The parameters in the code are heavily commented, so if you want to change something, read the comments. The default settings are for Windows. To run the script just type in the terminal / command window openned in the program directory
-```python generate_images.py```
+```
+python generate_images.py
+```
 You might need to add python to the PATH environmental variable on Windows (google "python add to PATH").
 
 
