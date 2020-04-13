@@ -4,7 +4,7 @@
          "earthgen.rkt")
 
 ; use even numbers
-(define planet-characteristic-size 4)
+(define planet-characteristic-size 6)
 
 ; don't use high number of seasons if planet-characteristic-size is big
 (define my-climate-parameters (climate-parameters/kw

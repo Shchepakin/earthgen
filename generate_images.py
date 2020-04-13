@@ -57,9 +57,12 @@ FOREST_LAI = 6.25
 SAVANNA_LAI = 5.90
 LAND_LAI = 4
 
-#   Desert might be warm or snowy. The desert is considered warm if the temperature doesn't fall
-#   bellow WARM_DESERT_MIN_TEMPERATURE during any season. Otherwise, it's cold.
-WARM_DESERT_MIN_TEMPERATURE = 18 + 273.15
+#   Desert might be sand, snowy, or neither (bare land). The desert is considered warm if
+#   the temperature doesn't fall bellow SAND_DESERT_MIN_TEMPERATURE during any season.
+#   The desert is snowy if max temperature durin all seasons is below SNOW_DESERT_MAX_TEMPERATURE
+#   Otherwise, it's a bare land.
+SAND_DESERT_MIN_TEMPERATURE = 15 + 273.15
+SNOW_DESERT_MAX_TEMPERATURE = 10 + 273.15
 
 #   Classifies a tile as a Wetland. Wetland must be on Flat Land and have precipitation greater
 #   than WETLANDS_PRECIPITATION during all seasons except seasons when the tile is covered by snow,
@@ -94,8 +97,9 @@ COLORS = {
     'Boreal Forest': (79, 158, 69),
     'Heavy Boreal Forest': (79, 158, 69),
     'Grass': (160, 215, 107),
-    'Warm Desert': (242, 227, 120),
-    'Cold Desert': (229, 229, 229),
+    'Sand Desert': (242, 227, 120),
+    'Desert': (168, 159, 109),
+    'Snow Desert': (229, 229, 229),
     'Savanna': (202, 227, 110),
     'Swamp': (161, 214, 158),
     'Marsh': (173, 222, 166),
@@ -158,7 +162,8 @@ def type_of_hex(hx, planet):
         return 'Surface Ocean'
     
     if (elevation < HILL_ELEVATION and 
-      all([(pre > WETLANDS_PRECIPITATION or sn > 0) for (pre, sn) in zip(precip, snow)])):
+      all([(pre > WETLANDS_PRECIPITATION or sn > 0) for (pre, sn) in zip(precip, snow)]) and
+      sum(snow) < len(planet)):
         if max(lai) > SAVANNA_LAI:
             return 'Swamp'
         else:
@@ -200,10 +205,12 @@ def type_of_hex(hx, planet):
     
     if max(lai) > LAND_LAI:
         return 'Grass'
-    elif min(temp) > WARM_DESERT_MIN_TEMPERATURE:
-        return 'Warm Desert'
+    elif min(temp) > SAND_DESERT_MIN_TEMPERATURE:
+        return 'Sand Desert'
+    elif max(temp) < SNOW_DESERT_MAX_TEMPERATURE:
+        return 'Snow Desert'
     else:
-        return 'Cold Desert'
+        return 'Desert'
 
 # Classifies all tiles, used in statistics
 def type_of_hexes(planet):
@@ -240,9 +247,10 @@ def gather_statistics(hex_types):
     
     savanna = key_include(count, 'Savanna')
     grass = key_include(count, 'Grass')
-    warm_desert = key_include(count, 'Warm Desert')
-    cold_desert = key_include(count, 'Cold Desert')
-    desert = key_include(count, 'Desert')
+    sand_desert = key_include(count, 'Sand Desert')
+    snow_desert = key_include(count, 'Snow Desert')
+    all_deserts = key_include(count, 'Desert')
+    desert = all_deserts - sand_desert - snow_desert
     
     marsh = key_include(count, 'Marsh')
     swamp = key_include(count, 'Swamp')
@@ -251,13 +259,13 @@ def gather_statistics(hex_types):
     output = ("Ocean: {:.2f}%\nLand: {:.2f}%\n    Hill: {:.2f}%\n    Mountain: {:.2f}%\n    Flat: {:.2f}%\n" +
               "Forests: {:.2f}%\n    Jungle: {:.2f}%\n    Deciduous: {:.2f}%\n    Boreal: {:.2f}%\n    Mixed: {:.2f}%\n" +
               "Savanna: {:.2f}%\nGrass: {:.2f}%\n" +
-              "Desert: {:.2f}%\n    Warm Desert: {:.2f}%\n    Cold Desert: {:.2f}%\n" +
+              "Desert: {:.2f}%\n    Warm Desert: {:.2f}%\n    Snow Desert: {:.2f}%\n    Bare land: {:.2f}%\n" +
               "Wetlands: {:.2f}%\n    Marsh: {:.2f}%\n    Swamp: {:.2f}%")
 
     params = [water / total, land / total, hill / land, mountain / land, flat / land,
               forest / land, jungle / forest, deciduous / forest, boreal / forest, mixed / forest,
               savanna / land, grass / land,
-              desert / land, warm_desert / desert, cold_desert / desert,
+              all_deserts / land, sand_desert / all_deserts, snow_desert / all_deserts, desert / all_deserts,
               wetlands / land, marsh / wetlands, swamp / wetlands]
     return output.format(*([100 * p for p in params]))
 
@@ -405,8 +413,8 @@ if __name__ == '__main__':
     print('Generating planet based on parameters from extract.rkt ...')
     
     command = f'"{RACKET}" export.rkt'
-    if os.system(command):
-        raise RuntimeError(command)
+    #if os.system(command):
+    #    raise RuntimeError(command)
     
     print('Done\nImporting map ...')
     
