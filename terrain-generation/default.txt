@@ -18,13 +18,13 @@
                               (abs a)))
                       width)))
                 (noise
-                 [seed (seed 1)]
+                 [seed (seed 2)]
                  [base-level 4]
                  [persistence 0.0])))]
       [mtn (map (lambda (a)
                   (max a 0.0))
                 (noise
-                 [seed (seed 2)]
+                 [seed (seed 3)]
                  [base-level 3]
                  [persistence 0.1]))]
       [mountains

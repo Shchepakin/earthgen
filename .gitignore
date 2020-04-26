@@ -27,3 +27,7 @@ TAGS
 
 # Python byte-compiled
 __pycache__/
+
+# input and output folders for earthgen export
+input/
+output/

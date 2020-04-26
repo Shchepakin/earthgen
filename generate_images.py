@@ -1,10 +1,20 @@
 import os
+import pickle
+import importlib.util
+import subprocess
 from collections import Counter
 from PIL import Image, ImageDraw
 from math import asin, acos, pi
 
+# Generate new planet from scratch vs. use the existing .py or .pickle file
+GENERATE_FROM_SCRATCH = False
 # Path to racket executable
-RACKET = r'C:\Program Files\Racket\racket.exe'
+RACKET_PATH = r'C:\Program Files\Racket\racket.exe'
+# Save dict to internal python binary format (faster reuse)
+SAVE_PICKLE = True
+# Planet size parameter (between 0 and 4)
+# 0 produces no hexes and 12 pentagons; 5 results in MemoryError
+PLANET_CHARACTERISTIC_SIZE = 0
 
 # Directory with icons.
 PICS = r'./pics/'
@@ -13,18 +23,30 @@ IMAGE_EXT = '.png'
 # A portion of a tile (e.g. hex) occupied by an icon. An icon is assumed to have equal height and width
 PIC_RATIO = 0.8
 
+# Input directory
+INPUT = r'./input/'
 # Output directory
 OUTPUT = r'./output/'
+# .py file name
+PY = f'earthgen_export_{PLANET_CHARACTERISTIC_SIZE}.py'
+# .pickle file name
+PICKLE = f'p{PLANET_CHARACTERISTIC_SIZE}.pickle'
+
+# Save Dymaxion projection?
+SAVE_DYMAXION = False
 # Dymaxion projection file name (including extension)
-DYMAXION = 'dymaxion.png'
+DYMAXION = f'dymaxion_{PLANET_CHARACTERISTIC_SIZE}.png'
 # The side length of a hexagon in pixels for dymaxion projections. Affects the resolution of the
 # resulting image. If the resulting quality of the tiles is poor, make it <= HEX_R
 DYMAXION_HEX_R = 50
 
-
+# Save equirectangular projection?
+SAVE_EQUIRECTANGULAR = True
+# Save equirectangular projection heightmap?
+SAVE_EQUIRECTANGULAR_HEIGHT = False
 # Equirectangular projection file name (including extension) and the corresponding height map
-EQUIRECTANGULAR = 'equirectangular.png'
-EQUIRECTANGULAR_HEIGHT = 'equirectangular_height.png'
+EQUIRECTANGULAR = f'equirectangular_{PLANET_CHARACTERISTIC_SIZE}.png'
+EQUIRECTANGULAR_HEIGHT = f'equirectangular_height_{PLANET_CHARACTERISTIC_SIZE}.png'
 # The number of pixels for 1 degree of latitude and longitude. Affects the resolution of the
 # resulting image.
 EQUIRECTANGULAR_DEGREE = 20
@@ -56,10 +78,10 @@ DEEP_OCEAN = - 3500
 #       Grass (< SAVANNA_TUNDRA_LAI    and    > LAND_LAI)
 #       Desert (< LAND_LAI)
 HEAVY_FOREST_LAI = 8
-FOREST_LAI = 6.25
-SAVANNA_TUNDRA_LAI = 5.50
-LAND_LAI = 3
-SAVANNA_MIN_TEMPERATURE = 15 + 273.15
+FOREST_LAI = 6.5
+SAVANNA_TUNDRA_LAI = 5.98
+LAND_LAI = 4
+SAVANNA_MIN_TEMPERATURE = 30 + 273.15
 
 #   Desert might be sand, snowy, or neither (bare land). The desert is considered warm if
 #   the temperature doesn't fall bellow SAND_DESERT_MIN_TEMPERATURE during any season.
@@ -296,11 +318,18 @@ def gather_statistics(hex_types):
               "Desert: {:.2f}%\n    Warm Desert: {:.2f}%\n    Snow Desert: {:.2f}%\n    Bare land: {:.2f}%\n" +
               "Wetlands: {:.2f}%\n    Marsh: {:.2f}%\n    Swamp: {:.2f}%")
 
-    params = [water / total, land / total, hill / land, mountain / land, flat / land,
-              forest / land, jungle / forest, deciduous / forest, boreal / forest, mixed / forest,
-              savanna / land, tundra / land, grass / land,
-              all_deserts / land, sand_desert / all_deserts, snow_desert / all_deserts, bare_land / all_deserts,
-              wetlands / land, marsh / wetlands, swamp / wetlands]
+    prc = lambda n, m: 100 * (n / m) if m > 0 else 0
+    params = [prc(water, total), prc(land, total), prc(hill, land), prc(mountain, land), prc(flat, land),
+              prc(forest, land), prc(jungle, forest), prc(deciduous, forest), prc(boreal, forest), prc(mixed, forest),
+              prc(savanna, land), prc(tundra, land), prc(grass, land),
+              prc(all_deserts, land), prc(sand_desert, all_deserts), prc(snow_desert, all_deserts), prc(bare_land, all_deserts),
+              prc(wetlands, land), prc(marsh, wetlands), prc(swamp, wetlands)]
+
+    # params = [water / total, land / total, hill / land, mountain / land, flat / land,
+    #           forest / land, jungle / forest, deciduous / forest, boreal / forest, mixed / forest,
+    #           savanna / land, tundra / land, grass / land,
+    #           all_deserts / land, sand_desert / all_deserts, snow_desert / all_deserts, bare_land / all_deserts,
+    #           wetlands / land, marsh / wetlands, swamp / wetlands]
     return output.format(*([100 * p for p in params]))
 
 # Imports icons for tiles
@@ -357,7 +386,7 @@ def save_dymaxion(planet, planet_size, icons):
     dymaxion.save(OUTPUT + DYMAXION)
 
 # Generates and saves Equirectangular map and height map projections
-def save_equirectangalar(planet, icons):
+def save_equirectangular(planet, icons, save_height=True):
     degree = EQUIRECTANGULAR_DEGREE
     max_height = max([tile['elevation'] for tile in planet[0].values()])
 
@@ -441,30 +470,59 @@ def save_equirectangalar(planet, icons):
             draw_tile_with_spherical_coordinates(equirectangular_height, c, fill_height, fill_height)
 
     equirectangular.save(OUTPUT + EQUIRECTANGULAR)
-    equirectangular_height.save(OUTPUT + EQUIRECTANGULAR_HEIGHT)
+    if save_height:
+        equirectangular_height.save(OUTPUT + EQUIRECTANGULAR_HEIGHT)
 
 if __name__ == '__main__':
-    print('Generating planet based on parameters from extract.rkt ...')
-    
-    command = f'"{RACKET}" export.rkt'
-    if os.system(command):
-        raise RuntimeError(command)
-    
-    print('Done\nImporting map ...')
-    
-    import earthgen_export
-    planet, planet_size = merge_slices(earthgen_export.planet)
-    converted_tiles = type_of_hexes(planet)
+    PICKLE_FILE_PATH = os.path.join(INPUT, PICKLE)
+    PY_FILE_PATH = os.path.join(INPUT, PY)
 
-    print('Done\n\n' + '=' * 25 + '\nYou planet statistics:\n')
+    if GENERATE_FROM_SCRATCH:
+        print('Generating planet based on parameters from extract.rkt')
+        #command = f'"{RACKET}" export.rkt {2 * PLANET_CHARACTERISTIC_SIZE} "{os.path.join(INPUT, PY)}"'
+        subprocess.check_call([RACKET_PATH, "export.rkt",
+                            str(2 * PLANET_CHARACTERISTIC_SIZE), PY_FILE_PATH])
+        print('Done')
+
+    print('Reading the map')
+    try:
+        # try to load pickle first
+        planet = pickle.load(PICKLE_FILE_PATH, 'rb')
+    except:
+        print('    failed to load from .pickle file. Trying to load from .py file')
+        spec = importlib.util.spec_from_file_location(PY, PY_FILE_PATH)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        planet = module.planet
+    print('Done')
+
+    if SAVE_PICKLE:
+        print('Saving map to .pickle file')
+        pickle.dump(planet, open(PICKLE_FILE_PATH, "wb"))
+        print('Done')
+
+    print('Classifying tiles')
+    planet, planet_size = merge_slices(planet)
+    converted_tiles = type_of_hexes(planet)
+    print('Done')
+
+    print('\n' + '=' * 25 + '\nYou planet statistics:\n')
     print(gather_statistics(converted_tiles))
     print('=' * 25)
 
     icons = import_tile_icons()
 
-    print(f'Saving Dymaxion projection to {OUTPUT}{DYMAXION}')
-    save_dymaxion(planet, planet_size, icons)
+    if SAVE_DYMAXION:
+        print(f'Saving Dymaxion projection to {OUTPUT}{DYMAXION}')
+        save_dymaxion(planet, planet_size, icons)
+        print('Done')
 
-    print(f'Done\nSaving Equirectangular projection and Heightmap to {OUTPUT}{EQUIRECTANGULAR} and {OUTPUT}{EQUIRECTANGULAR_HEIGHT}')
-    save_equirectangalar(planet, icons)
-    print('Done')
+    if SAVE_EQUIRECTANGULAR:
+        message = ('Saving Equirectangular projection ' + ('and Heigtmap ' if SAVE_EQUIRECTANGULAR_HEIGHT else '') +
+                   f'to {OUTPUT}{EQUIRECTANGULAR}' +
+                   (f'and {OUTPUT}{EQUIRECTANGULAR_HEIGHT}' if SAVE_EQUIRECTANGULAR_HEIGHT else '')) 
+        print(message)
+        save_equirectangular(planet, icons, save_height=SAVE_EQUIRECTANGULAR_HEIGHT)
+        print('Done')
+
+    print('Finished')

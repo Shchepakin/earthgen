@@ -4,7 +4,15 @@
          "earthgen.rkt")
 
 ; use even numbers
-(define planet-characteristic-size 6)
+(define planet-characteristic-size
+  (if (> (vector-length (current-command-line-arguments)) 0)
+       (string->number (vector-ref (current-command-line-arguments) 0))
+       6))
+
+(define output-filename
+  (if (> (vector-length (current-command-line-arguments)) 1)
+       (vector-ref (current-command-line-arguments) 1)
+       (string-append "./input/earthgen_export_" (number->string planet-characteristic-size) ".py")))
 
 ; don't use high number of seasons if planet-characteristic-size is big
 (define my-climate-parameters (climate-parameters/kw
@@ -133,9 +141,8 @@
          (print-season (season planet s) out))
       (displayln "]" out)))
 
-(define p8 (gen-planet planet-characteristic-size))
-
-(define output (open-output-file #:mode 'text #:exists 'replace "./earthgen_export.py"))
-(print-planet p8 output)
+(define planet-output (gen-planet planet-characteristic-size))
+(define output (open-output-file #:mode 'text #:exists 'replace output-filename))
+(print-planet planet-output output)
 
 (close-output-port output)
