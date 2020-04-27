@@ -7,14 +7,14 @@ from PIL import Image, ImageDraw
 from math import asin, acos, pi
 
 # Generate new planet from scratch vs. use the existing .py or .pickle file
-GENERATE_FROM_SCRATCH = True
+GENERATE_FROM_SCRATCH = False
 # Path to racket executable
 RACKET_PATH = r'C:\Program Files\Racket\racket.exe'
 # Save dict to internal python binary format (faster reuse)
-SAVE_PICKLE = True
+SAVE_PICKLE = False
 # Planet size parameter (between 0 and 4)
 # 0 produces no hexes and 12 pentagons; 5 results in MemoryError
-PLANET_CHARACTERISTIC_SIZE = 2
+PLANET_CHARACTERISTIC_SIZE = 3
 
 # Directory with icons.
 PICS = r'./pics/'
@@ -486,7 +486,7 @@ if __name__ == '__main__':
     print('Reading the map')
     try:
         # try to load pickle first
-        planet = pickle.load(PICKLE_FILE_PATH, 'rb')
+        planet = pickle.load(open(PICKLE_FILE_PATH, 'rb'))
     except:
         print('    failed to load from .pickle file. Trying to load from .py file')
         spec = importlib.util.spec_from_file_location(PY, PY_FILE_PATH)
