@@ -5,7 +5,7 @@
                                a
                                (* 3.0 a)))
                          (heightmap
-                          [seed (seed 0)]
+                          [seed (seed 3619)]
                           [base-level 2]
                           [amplitude 1600.0]
                           [divergence 2.8])))]
@@ -18,13 +18,13 @@
                               (abs a)))
                       width)))
                 (noise
-                 [seed (seed 1)]
+                 [seed (seed 25163)]
                  [base-level 4]
                  [persistence 0.0])))]
       [mtn (map (lambda (a)
                   (max a 0.0))
                 (noise
-                 [seed (seed 2)]
+                 [seed (seed 20387)]
                  [base-level 3]
                  [persistence 0.1]))]
       [mountains

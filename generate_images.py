@@ -7,14 +7,14 @@ from PIL import Image, ImageDraw
 from math import asin, acos, pi
 
 # Generate new planet from scratch vs. use the existing .py or .pickle file
-GENERATE_FROM_SCRATCH = False
+GENERATE_FROM_SCRATCH = True
 # Path to racket executable
 RACKET_PATH = r'C:\Program Files\Racket\racket.exe'
 # Save dict to internal python binary format (faster reuse)
 SAVE_PICKLE = True
 # Planet size parameter (between 0 and 4)
 # 0 produces no hexes and 12 pentagons; 5 results in MemoryError
-PLANET_CHARACTERISTIC_SIZE = 0
+PLANET_CHARACTERISTIC_SIZE = 2
 
 # Directory with icons.
 PICS = r'./pics/'
@@ -330,7 +330,7 @@ def gather_statistics(hex_types):
     #           savanna / land, tundra / land, grass / land,
     #           all_deserts / land, sand_desert / all_deserts, snow_desert / all_deserts, bare_land / all_deserts,
     #           wetlands / land, marsh / wetlands, swamp / wetlands]
-    return output.format(*([100 * p for p in params]))
+    return output.format(*params)
 
 # Imports icons for tiles
 def import_tile_icons():
@@ -479,7 +479,6 @@ if __name__ == '__main__':
 
     if GENERATE_FROM_SCRATCH:
         print('Generating planet based on parameters from extract.rkt')
-        #command = f'"{RACKET}" export.rkt {2 * PLANET_CHARACTERISTIC_SIZE} "{os.path.join(INPUT, PY)}"'
         subprocess.check_call([RACKET_PATH, "export.rkt",
                             str(2 * PLANET_CHARACTERISTIC_SIZE), PY_FILE_PATH])
         print('Done')
